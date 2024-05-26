@@ -34,3 +34,17 @@ struct Serializer<T, typename std::enable_if<std::is_base_of<::google::protobuf:
     // protobuf成员
 }
 ```
+
+# gdb调试
+
+- bt ：堆栈信息
+- gdb a 进程号 ：调试正在运行的进程
+- list ：查看堆栈代码
+- s ：进入这个函数
+
+---
+
+1. 断点打在 serialization_protobuf.h: 42
+2. c ：运行到断点
+3. bt ：查看堆栈信息
+4. s ：step
