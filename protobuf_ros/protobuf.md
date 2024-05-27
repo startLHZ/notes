@@ -1,54 +1,3 @@
-# protobuf嵌入方式
-
-## SFINAE
-
-- 编译器先匹配类模板全特化和类模板偏特化，然后再匹配普通模板
-- 本质：if else  ,是在编译的时候确定下来的，函数/类，并且只要有一个函数或类匹配成功，就不会编译报错
-- SFINAE是C++模板编译的一个原则，全名叫做Substitution Failure Is Not An Error （匹配失败不是错误）
-
-### `std::enable_if`
-
-- If B is true, `std::enable_if` has a public member typedef type, equal to T; otherwise, there is no member typedef.
-- 第一个模板参数为 false 的时候并不会有成员变量：type。只有在第一模板参数为 true 的时候才会有定义成员变量：type
-
-### `std::is_base_of`
-
-- std::is_base_of 是 C++ 标准库 <type_traits> 中的一个模板类，用于判断一个类是否是另一个类的基类。
-- 两个模版参数
-- 有一个成员常量: value，用于表示第一个类型是否是第二个类型的基类。
-- 如果第一个类型是第二个类型的基类，value 将为 true，否则为 false。
-
-## 嵌入方法
-
-利用函数模版编译时匹配的特性，给原 rosmsg 的模版加一个参数 enable = void。protobuf 的模板类判断参数类型是否以 protobuf 为基类，不是的话没有第二个 enable 参数，偏特化匹配失败，匹配 rosmsg 模版。匹配顺序，特化 -> 偏特化 -> 普通模版。
-
-```C++
-template <typename T, typename Enable = void>
-struct Serializer {
-    // rosmsg成员
-}
-
-// protobuf
-template <typename T>
-struct Serializer<T, typename std::enable_if<std::is_base_of<::google::protobuf::Message, T>::value>::type> {
-    // protobuf成员
-}
-```
-
-## gdb调试
-
-- bt ：堆栈信息
-- gdb a 进程号 ：调试正在运行的进程
-- list ：查看堆栈代码
-- s ：进入这个函数
-
----
-
-1. 断点打在 serialization_protobuf.h: 42
-2. c ：运行到断点
-3. bt ：查看堆栈信息
-4. s ：step
-
 # protobuf知识点
 
 当运行 protocol buffer compiler 编译 test.proto 时，编译器会以您选择的语言生成代码，您需要使用文件中描述的消息类型，包括获取和设置字段值、将消息序列化为输出流，并从输入流解析消息。
@@ -146,3 +95,79 @@ message Test2 {
 2）03就表示后面value的长度为3字节；
 
 3）“08 96 01” 是 Test1 编码后的结果。
+
+## 反射
+
+- 给定一个pb对象，如何自动遍历该对象的所有字段？  
+  即是否有一个通用的方法可以遍历任意pb对象的所有字段，而不用关心具体对象类型。
+- 反射就是获取系统/程序的元信息。
+- 元信息：系统自身描述信息，用于描述系统本身，如字段类型。
+- 获取元信息：
+    1. .proto 文件
+    2. 通过元数据构建proto定义的一些message描述，动态创建出proto的对象，然后把数据赋值给对象。
+- 反射的作用：动态获取数据的元数据。
+
+# protobuf嵌入方式
+
+## SFINAE
+
+- 编译器先匹配类模板全特化和类模板偏特化，然后再匹配普通模板
+- 本质：if else  ,是在编译的时候确定下来的，函数/类，并且只要有一个函数或类匹配成功，就不会编译报错
+- SFINAE是C++模板编译的一个原则，全名叫做Substitution Failure Is Not An Error （匹配失败不是错误）
+
+### `std::enable_if`
+
+- If B is true, `std::enable_if` has a public member typedef type, equal to T; otherwise, there is no member typedef.
+- 第一个模板参数为 false 的时候并不会有成员变量：type。只有在第一模板参数为 true 的时候才会有定义成员变量：type
+
+### `std::is_base_of`
+
+- std::is_base_of 是 C++ 标准库 <type_traits> 中的一个模板类，用于判断一个类是否是另一个类的基类。
+- 两个模版参数
+- 有一个成员常量: value，用于表示第一个类型是否是第二个类型的基类。
+- 如果第一个类型是第二个类型的基类，value 将为 true，否则为 false。
+
+## 嵌入方法
+
+利用函数模版编译时匹配的特性，给原 rosmsg 的模版加一个参数 enable = void。protobuf 的模板类判断参数类型是否以 protobuf 为基类，不是的话没有第二个 enable 参数，偏特化匹配失败，匹配 rosmsg 模版。匹配顺序，特化 -> 偏特化 -> 普通模版。
+
+```C++
+template <typename T, typename Enable = void>
+struct Serializer {
+    // rosmsg成员
+}
+
+// protobuf
+template <typename T>
+struct Serializer<T, typename std::enable_if<std::is_base_of<::google::protobuf::Message, T>::value>::type> {
+    // protobuf成员
+}
+```
+
+## gdb调试
+
+- bt ：堆栈信息
+- gdb a 进程号 ：调试正在运行的进程
+- list ：查看堆栈代码
+- s ：进入这个函数
+
+---
+
+1. 断点打在 serialization_protobuf.h: 42
+2. c ：运行到断点
+3. bt ：查看堆栈信息
+4. s ：step
+
+## ROS traits
+
+### ROS traits 作用
+
+1. 校验类型：允许在编译时为消息和服务类型添加类型信息，使得在运行时可以对消息类型进行动态的类型检查。
+2. 动态反射：可以在运行时获取关于消息的元数据，如protobuf的字段名称、数据类型。可以通过反射机制实现消息的序列化和反序列化，动态地创建、修改和组合消息和服务类型。
+3. 消息扩展：消息类型添加截断、压缩、加密等功能。
+4. 主要用来适配 C++ types 到ROS的msg types, 同时也方便获取消息的信息，例如：datatype, md5sum和消息定义
+5. 所有的traits必需定义在命名空间ros::message_traits
+
+### MessageEvent 类
+
+功能：用于处理消息事件，主要是对message的封装，替换boost::shared_ptr<M const>智能指针
