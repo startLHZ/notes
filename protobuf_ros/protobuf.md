@@ -109,6 +109,10 @@ message Test2 {
 
 # protobuf嵌入方式
 
+ROS官方：  
+Serialization and Adaping Types：https://wiki.ros.org/roscpp/Overview/MessagesSerializationAndAdaptingTypes  
+Traits：https://wiki.ros.org/roscpp/Overview/MessagesTraits
+
 ## SFINAE
 
 - 编译器先匹配类模板全特化和类模板偏特化，然后再匹配普通模板
